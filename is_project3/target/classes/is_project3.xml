@@ -1,0 +1,443 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:quartz="http://www.mulesoft.org/schema/mule/quartz" xmlns:smtps="http://www.mulesoft.org/schema/mule/smtps" xmlns:smtp="http://www.mulesoft.org/schema/mule/smtp" xmlns:cxf="http://www.mulesoft.org/schema/mule/cxf" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:jetty="http://www.mulesoft.org/schema/mule/jetty" xmlns:twitter="http://www.mulesoft.org/schema/mule/twitter" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:vm="http://www.mulesoft.org/schema/mule/vm" xmlns:mulexml="http://www.mulesoft.org/schema/mule/xml" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" version="EE-3.5.2"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
+http://www.mulesoft.org/schema/mule/xml http://www.mulesoft.org/schema/mule/xml/current/mule-xml.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/twitter http://www.mulesoft.org/schema/mule/twitter/current/mule-twitter.xsd
+http://www.mulesoft.org/schema/mule/jetty http://www.mulesoft.org/schema/mule/jetty/current/mule-jetty.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/smtp http://www.mulesoft.org/schema/mule/smtp/current/mule-smtp.xsd
+http://www.mulesoft.org/schema/mule/cxf http://www.mulesoft.org/schema/mule/cxf/current/mule-cxf.xsd
+http://www.mulesoft.org/schema/mule/smtps http://www.mulesoft.org/schema/mule/smtps/current/mule-smtps.xsd
+http://www.mulesoft.org/schema/mule/quartz http://www.mulesoft.org/schema/mule/quartz/current/mule-quartz.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
+    <mulexml:jaxb-context name="JAXB_Context" packageNames="xmlMapping" doc:name="JAXB Context"/>
+    <db:generic-config name="PostgresDB-IS" url="jdbc:postgresql://localhost/postgres?user=postgres&amp;password=postgres" driverClassName="org.postgresql.Driver" doc:name="Generic Database Configuration"/>
+    <smtp:gmail-connector name="Gmail" validateConnections="true" doc:name="Gmail"/>
+    <twitter:config name="Twitter" accessKey="312733390-58udaYe17xb2CuUXrgvMj3RZ0qFRoXWjf72vMz8s" accessSecret="mJZ2TIbgKli5Zx8RSWL01x6ZhjbM807qGn5bdrH30YYN0" consumerKey="Fz6fs2kkVxT8Sxw7YyuKPvNOU" consumerSecret="MDL95a6DbET2ziIQDbIKsqOyFux4H72lExEH5CNwZKSERst9vr" doc:name="Twitter"/>
+  <!--   <spring:beans>
+        <spring:bean id="Bean" name="Bean"/>
+    </spring:beans> -->
+    <!-- <mulexml:schema-validation-filter schemaLocations="core:filter ref=Schema_Validation" returnResult="true" name="Schema_Validation" doc:name="Schema Validation"/> -->
+    <catch-exception-strategy name="Catch Exception Strategy">
+        <logger message="ERROR" level="TRACE" doc:name="Logger"/>
+    </catch-exception-strategy>
+   <flow name="is_project3_Subscribe" doc:name="is_project3_Subscribe">
+        <http:inbound-endpoint exchange-pattern="request-response" host="localhost" port="8081" path="subscribe" doc:name="HTTP"/>
+        <http:static-resource-handler resourceBase="C:/Users/seyma/AnypointStudio/workspace/is_project3/src/main/resources/subscribe.html" doc:name="HTTP Static Resource Handler"/>
+        <exception-strategy ref="Catch Exception Strategy" doc:name="Reference Exception Strategy"/>
+    </flow>
+    <flow name="is_project3_SubscriptionUserExist" doc:name="is_project3_SubscriptionUserExist">
+        <http:inbound-endpoint exchange-pattern="request-response" host="localhost" port="8081" path="subscription" doc:name="HTTP"/>
+        <logger message="#[message.inboundProperties['digestType'] ]" level="INFO" doc:name="Logger"/>
+        <set-payload value="#[message.inboundProperties['email'] ] + '  HEREEE   ' +#[message.inboundProperties['regionType']]" doc:name="Set Payload"/>
+        <set-variable variableName="email" value="#[message.InboundProperties['email'].replace(&quot;%40&quot;,&quot;@&quot;)]" doc:name="Email - Cast"/>
+        <db:select config-ref="PostgresDB-IS" doc:name="Check if the user exist">
+            <db:parameterized-query><![CDATA[SELECT * FROM user_tb 
+WHERE email = #[email];]]></db:parameterized-query>
+
+        </db:select>
+        <logger message="Email+#[email]" level="INFO" doc:name="Logger"/>
+        <set-variable variableName="web" value="#['web']" doc:name="WEB"/>
+        <choice doc:name="User Exist / not exist">
+            <when expression="#[message.payload.size()==0 ]">
+                <set-variable variableName="token" value="#[java.util.UUID.randomUUID().toString()] " doc:name="Token"/>
+
+                <set-payload value="'TOKEN   ' + #[token]" doc:name="TOKEN"/>
+                <choice doc:name="Choice">
+                    <when expression="#[message.inboundProperties['digestType'] ==true]">
+                        <db:insert config-ref="PostgresDB-IS" doc:name="Insert User - Not confirmed">
+                            <db:parameterized-query><![CDATA[INSERT INTO user_tb(email, digest_type, region, token, confirm, type) VALUES (#[email], 't', #[message.inboundProperties['regionType']], #[token], false, #[web]);]]></db:parameterized-query>
+                        </db:insert>
+                    </when>
+                    <otherwise>
+                        <db:insert config-ref="PostgresDB-IS" doc:name="Insert User - Not confirmed non-digest">
+                            <db:parameterized-query><![CDATA[INSERT INTO user_tb(email, digest_type, region, token, confirm, type) VALUES (#[email], 'f', #[message.inboundProperties['regionType']], #[token], false, #[web]);]]></db:parameterized-query>
+                        </db:insert>
+                    </otherwise>
+                </choice>
+
+                <set-payload value="For confirmation click the link  http://localhost:8081/ConfirmUserSubscription?email=#[email]&amp;token=#[token]" doc:name="Email Body Subscribe"/>
+                <flow-ref name="is_project3_SendEmail" doc:name="Send Email - Confirmation"/>
+            </when>
+            <otherwise>
+                <flow-ref name="is_project3_ExistUser" doc:name="Flow Reference"/>
+
+            </otherwise>
+        </choice>
+        <exception-strategy ref="Catch Exception Strategy" doc:name="Reference Exception Strategy"/>
+      <!--   <choice doc:name="Choice _ Comment">
+            <when expression="">
+                <db:select config-ref="PostgresDB-IS" doc:name="Database">
+                    <db:parameterized-query><![CDATA[SELECT news_tb.datetime 
+FROM news_tb 
+WHERE news_tb.datetime > current_timestamp - interval '10' day
+ORDER BY news_tb.datetime;]]></db:parameterized-query>
+                </db:select>
+            </when>
+            <otherwise>
+                <logger level="INFO" doc:name="Logger"/>
+            </otherwise>
+        </choice> -->
+    </flow>
+    <sub-flow name="is_project3_ExistUser" doc:name="is_project3_ExistUser">
+        <db:select config-ref="PostgresDB-IS" doc:name="Exist and Confirmed user">
+            <db:parameterized-query><![CDATA[SELECT * FROM user_tb 
+WHERE email = #[email]
+AND confirm = true;]]></db:parameterized-query>
+        </db:select>
+        <choice doc:name="Choice">
+            <when expression="#[message.payload.size() &gt; 0 ]">
+                <logger level="INFO" doc:name="Logger"/>
+                <set-payload value="The email addres  + #[email] + 'that you want to subscribe, is already in mail list" doc:name="Email Body for existed user"/>
+                <flow-ref name="is_project3_SendEmail" doc:name="Flow Reference"/>
+            </when>
+            <otherwise>
+                <set-variable variableName="token" value="#[java.util.UUID.randomUUID().toString()] " doc:name="TOKEN"/>
+                <set-payload value="For confirmation click the link  http://localhost:8081/ConfirmUserSubscription?email=#[email]&amp;token=#[token]" doc:name="Set Payload"/>
+                <db:update config-ref="PostgresDB-IS" doc:name="Update Token">
+                    <db:parameterized-query><![CDATA[UPDATE user_tb SET token = #[token] WHERE email = #[email];]]></db:parameterized-query>
+                </db:update>
+                <logger level="INFO" doc:name="Fix it"/>
+                <flow-ref name="is_project3_SendEmail" doc:name="Flow Reference"/>
+            </otherwise>
+        </choice>
+    </sub-flow>
+
+    <flow name="is_project3_ConfirmUserSubscription" doc:name="is_project3_ConfirmUserSubscription">
+        <http:inbound-endpoint exchange-pattern="request-response" host="localhost" port="8081" path="ConfirmUserSubscription" doc:name="HTTP"/>
+        <set-variable variableName="email" value="#[message.inboundProperties['email'].replace(&quot; &quot;, &quot;&quot;) ]" doc:name="Email Variable"/>
+        <set-variable variableName="token" value="#[message.inboundProperties['token'] ] " doc:name="Token Variable"/>
+
+        <logger message="EHEHEH + #[email]" level="INFO" doc:name="Logger"/>
+        <db:select config-ref="PostgresDB-IS" doc:name="Select Token and Email (Sent Email)">
+            <db:parameterized-query><![CDATA[SELECT email FROM user_tb
+WHERE token=#[token] AND email=#[email];]]></db:parameterized-query>
+        </db:select>
+        <choice doc:name="Choice - If the user is clicking right link to confirm">
+            <when expression="#[message.payload.size() &gt; 0 ]">
+                <db:update config-ref="PostgresDB-IS" doc:name="Confirmation - Update user">
+                    <db:parameterized-query><![CDATA[UPDATE user_tb SET confirm = true WHERE email = #[email];]]></db:parameterized-query>
+                </db:update>
+                <set-payload value="#[email] is added to our mail list." doc:name="Set Payload"/>
+                <flow-ref name="is_project3_SendEmail" doc:name="Send email"/>
+            </when>
+            <otherwise>
+                <set-payload value="'#[email]' +  your confirmation is not sucesstul" doc:name="Set Payload"/>
+            </otherwise>
+        </choice>
+        <exception-strategy ref="Catch Exception Strategy" doc:name="Reference Exception Strategy"/>
+    </flow> 
+    <flow name="is_project3_SoapSubscription" doc:name="is_project3_SoapSubscription">
+        <http:inbound-endpoint exchange-pattern="request-response" host="localhost" port="8081" path="Subscription" doc:name="HTTP"/>
+        <cxf:jaxws-service serviceClass="ws.Subscription" doc:name="CXF"/>
+        <choice doc:name="Choice">
+            <when expression="#[method.name=='subscribeUser']">
+                <logger message="LOGGERRR + #[payload]" level="INFO" doc:name="Logger"/>
+                <set-variable variableName="email" value="#[payload[0]]" doc:name="Email"/>
+                <set-payload value="#[payload.get(0).email]" doc:name="Set Payload"/>
+                <set-variable variableName="digestType" value="#[payload[1]]" doc:name="Digest Type"/>
+                <set-variable variableName="region" value="#[payload[2]]" doc:name="Region"/>
+                <flow-ref name="is_project3_SOAPInsert" doc:name="Insert user"/>
+            </when>
+            <otherwise>
+                <set-variable variableName="email" value="#[payload[0]]" doc:name="Email"/>
+                <flow-ref name="is_project3_SOAPDelete" doc:name="Delete user"/>
+            </otherwise>
+        </choice>
+        <set-payload value="Hello #[payload.get(0).number]! Check your email" doc:name="Set Payload"/>
+        <exception-strategy ref="Catch Exception Strategy" doc:name="Reference Exception Strategy"/>
+      <!--   <component doc:name="Java">
+            <singleton-object class="ws.subs"/>
+        </component> -->
+
+    </flow>
+    <sub-flow name="is_project3_SOAPInsert" doc:name="is_project3_SOAPInsert">
+        <db:select config-ref="PostgresDB-IS" doc:name="Select if The user exist">
+            <db:parameterized-query><![CDATA[SELECT * FROM user_tb 
+WHERE email = #[email];]]></db:parameterized-query>
+        </db:select>
+        <set-variable variableName="user" value="#[message.payload]" doc:name="Variable"/>
+        <set-variable variableName="soap" value="#['soap']" doc:name="Type - SOAP"/>
+        <choice doc:name="Choice- If the user exist">
+            <when expression="#[message.payload.size() &gt; 0 ]">
+                <flow-ref name="is_project3_ExistUser" doc:name="Flow Reference"/>
+            </when>
+            <otherwise>
+                <logger level="INFO" doc:name="Logger"/>
+                <set-variable variableName="token" value="#[java.util.UUID.randomUUID().toString()] " doc:name="TOKEN"/>
+                <logger message="#[email]" level="INFO" doc:name="email"/>
+                <logger message="#[digestType]" level="INFO" doc:name="digest type"/>
+                <logger message="#[region]" level="INFO" doc:name="Region"/>
+                <db:insert config-ref="PostgresDB-IS" doc:name="Insert User - SOAP">
+                    <db:parameterized-query><![CDATA[INSERT INTO user_tb(email, digest_type, region, token, confirm, type) VALUES (#[email], #[flowVars['digest'] == true ?  true :  false], #[region], #[token], false, #[soap]);]]></db:parameterized-query>
+                </db:insert>
+                <set-payload value="For confirmation click the link  http://localhost:8081/ConfirmUserSubscription?email=#[email]&amp;token=#[token]" doc:name="Email Body Soap"/>
+                <flow-ref name="is_project3_SendEmail" doc:name="Send Email - Confirmation"/>
+            </otherwise>
+        </choice>
+    </sub-flow>
+    <sub-flow name="is_project3_SOAPDelete" doc:name="is_project3_SOAPDelete">
+        <db:select config-ref="PostgresDB-IS" doc:name="Select if the user exist">
+            <db:parameterized-query><![CDATA[SELECT * FROM user_tb 
+WHERE email = #[email];]]></db:parameterized-query>
+        </db:select>
+        <choice doc:name="Choice">
+            <when expression="#[message.payload.size() &gt; 0 ]">
+                <set-variable variableName="token" value="#[java.util.UUID.randomUUID().toString()] " doc:name="TOKEN"/>
+                <db:update config-ref="PostgresDB-IS" doc:name="Update Token for confirm email">
+                    <db:parameterized-query><![CDATA[UPDATE user_tb SET token = #[token] WHERE email = #[email];]]></db:parameterized-query>
+                </db:update>
+                <set-payload value="If you want to unsubscribe click the link  http://localhost:8081/ConfirmUserUnsubscription?email=#[email]&amp;token=#[token]" doc:name="Email Body"/>
+                <flow-ref name="is_project3_SendEmail" doc:name="Send Email -soap nsubscription"/>
+            </when>
+            <otherwise>
+                <logger level="INFO" doc:name="Logger"/>
+            </otherwise>
+        </choice>
+    </sub-flow>
+
+    <flow name="is_project3_Unsubscribe" doc:name="is_project3_Unsubscribe">
+        <http:inbound-endpoint exchange-pattern="request-response" host="localhost" port="8081" path="unsubscribe" doc:name="HTTP"/>
+
+        <http:static-resource-handler resourceBase="C:/Users/seyma/AnypointStudio/workspace/is_project3/src/main/resources/unsubscribe.html" doc:name="HTTP Static Resource Handler"/>
+        <exception-strategy ref="Catch Exception Strategy" doc:name="Reference Exception Strategy"/>
+    </flow>
+    <flow name="is_project3_Unsubscription_UserExist" doc:name="is_project3_Unsubscription_UserExist">
+        <http:inbound-endpoint exchange-pattern="request-response" host="localhost" port="8081" path="unsubscription" doc:name="HTTP"/>
+        <set-payload value="#[message.inboundProperties['email'] ]" doc:name="Set Payload"/>
+        <set-variable variableName="email" value="#[message.inboundProperties['email'].replace(&quot; &quot;, &quot;&quot;) ]" doc:name="Email"/>
+        <set-variable variableName="email" value="#[message.inboundProperties['email'].replace(&quot;%40&quot;, &quot;@&quot;) ]" doc:name="Email Cast"/>
+        <logger message="#[email]" level="INFO" doc:name="Logger"/>
+        <db:select config-ref="PostgresDB-IS" doc:name="If the user exist">
+            <db:parameterized-query><![CDATA[SELECT * FROM user_tb 
+WHERE email=#[email]]]></db:parameterized-query>
+        </db:select>
+        <choice doc:name="Choice - If user exist">
+            <when expression="#[message.payload.size() &gt; 0 ]">
+                <set-variable variableName="token" value="#[java.util.UUID.randomUUID().toString()] " doc:name="TOKEN"/>
+                <db:update config-ref="PostgresDB-IS" doc:name="Update Token for unsubscription">
+                    <db:parameterized-query><![CDATA[UPDATE user_tb SET token = #[token] WHERE email = #[email];]]></db:parameterized-query>
+                </db:update>
+                <set-payload value="If you want to unsubscribe click the link  http://localhost:8081/ConfirmUserUnsubscription?email=#[email]&amp;token=#[token]" doc:name="Email Body Unsubscribe"/>
+                <flow-ref name="is_project3_SendEmail" doc:name="Flow Reference"/>
+            </when>
+            <otherwise>
+                <logger level="INFO" doc:name="Logger" message="User is not exist"/>
+            </otherwise>
+        </choice>
+        <exception-strategy ref="Catch Exception Strategy" doc:name="Reference Exception Strategy"/>
+    </flow>
+    <flow name="is_project3_ConfirmUserUnsubscription" doc:name="is_project3_ConfirmUserUnsubscription">
+        <http:inbound-endpoint exchange-pattern="request-response" host="localhost" port="8081" path="ConfirmUserUnsubscription" doc:name="HTTP"/>
+        <set-variable variableName="email" value="#[message.inboundProperties['email'] ]" doc:name="Email"/>
+        <set-variable variableName="token" value="#[message.inboundProperties['token']]" doc:name="TOKEN"/>
+        <db:delete config-ref="PostgresDB-IS" doc:name="Delete User">
+            <db:parameterized-query><![CDATA[DELETE FROM user_tb
+WHERE email = #[email];]]></db:parameterized-query>
+        </db:delete>
+        <set-payload value="#[email] unsubscried from mail list." doc:name="Set Payload"/>
+        <logger message="SUCCESS" level="INFO" doc:name="Logger"/>
+        <exception-strategy ref="Catch Exception Strategy" doc:name="Reference Exception Strategy"/>
+    </flow>
+    <flow name="is_project3_parseFile" doc:name="is_project3_parseFile">
+        <file:inbound-endpoint path="D:\DEI\IS\Project3\XmlFiles" pollingFrequency="10000" responseTimeout="10000" doc:name="File"/>
+        <logger message="AI JESUS!!!" level="ERROR" doc:name="Logger"/>
+        <vm:outbound-endpoint exchange-pattern="one-way" path="lolo" responseTimeout="100000" doc:name="VM"/>
+        <exception-strategy ref="Catch Exception Strategy" doc:name="Reference Exception Strategy"/>
+    </flow>
+    <flow name="is_project3_ParseXML" doc:name="is_project3_ParseXML" initialState="started">
+        <vm:inbound-endpoint exchange-pattern="one-way" path="lolo" doc:name="VM"/>
+        <logger message="OLELELELELELELE" level="INFO" doc:name="Logger"/>
+        <mulexml:jaxb-xml-to-object-transformer jaxbContext-ref="JAXB_Context" doc:name="XML to JAXB Object"/>
+        <foreach collection="#[payload.getRegion()]" doc:name="For Each - Region">
+            <set-variable variableName="regionname" value="#[payload.getId()]" doc:name="Region Name"/>
+            <foreach collection="#[payload.getNews()]" doc:name="For Each  - News">
+                <set-variable variableName="news" value="#[message.payload]" doc:name="news"/>
+                <logger message="#['VIDEO URL ' + payload.getVideourl() + '     HERE   ' + payload.getPhotoList().getPhoto().size()] " level="INFO" doc:name="Logger"/>
+                <choice doc:name="Choice">
+                    <when expression="[payload.getPhotoList()!=null || payload.getVideourl()!=null]">
+                        <db:insert config-ref="PostgresDB-IS" doc:name="Insert News From XML">
+                            <db:parameterized-query><![CDATA[INSERT INTO news_tb(news_id, datetime, location, newsurl, text, photolist, title, videourl, region) VALUES (#[payload.getId()], #[payload.getDatetime()], #[payload.getLocation()], #[payload.getNewsurl()], #[payload.getText()], #[payload.getPhotoList().getPhoto().get(0)], #[payload.getTitle()], #[payload.getVideourl()], #[flowVars['regionname']])]]></db:parameterized-query>
+                        </db:insert>
+                        <db:update config-ref="PostgresDB-IS" doc:name="Num Total News">
+                            <db:parameterized-query><![CDATA[UPDATE soap_statistics SET number = 1 + number
+WHERE name='news';]]></db:parameterized-query>
+                        </db:update>
+                        <logger message="News added! " level="INFO" doc:name="Logger - Add Twitter Here"/>
+                        <db:update config-ref="PostgresDB-IS" doc:name="Update - Count News By Region">
+                            <db:parameterized-query><![CDATA[UPDATE soap_statistics SET number = 1 + number
+WHERE name=#[regionname];]]></db:parameterized-query>
+                        </db:update>
+                    </when>
+                    <otherwise>
+                        <logger level="INFO" doc:name="Logger"/>
+                    </otherwise>
+                </choice>
+            </foreach>
+        </foreach>
+        <db:select config-ref="PostgresDB-IS" doc:name="News From 24 hours">
+            <db:parameterized-query><![CDATA[SELECT title, newsurl
+FROM news_tb
+WHERE news_tb.datetime > now() - interval '24 hour'
+ORDER BY news_tb.datetime;]]></db:parameterized-query>
+        </db:select>
+        <logger message="ENTAO     #[payload.title]" level="INFO" doc:name="Title"/>
+        <logger message="YESSS URL    #[payload.newsurl]" level="INFO" doc:name="url"/>
+        <foreach doc:name="For Each">
+            <twitter:update-status config-ref="Twitter" status="#['(' +server.dateTime + ')' + payload.newsurl]" doc:name="Twitter"/>
+            <db:update config-ref="PostgresDB-IS" doc:name="Update - Count Tweets">
+                <db:parameterized-query><![CDATA[UPDATE soap_statistics SET number = 1 + number
+WHERE name='tweets';]]></db:parameterized-query>
+            </db:update>
+        </foreach>
+        <db:select config-ref="PostgresDB-IS" doc:name="Select -non-digest">
+            <db:parameterized-query><![CDATA[SELECT email, region FROM user_tb 
+WHERE digest_type=false
+AND confirm=true;]]></db:parameterized-query>
+        </db:select>
+        <foreach doc:name="For Each non-digest user">
+            <set-variable variableName="email" value="#[payload.email]" doc:name="EMAIL"/>
+            <set-variable variableName="region" value="#[payload.region]" doc:name="REGION"/>
+            <db:select config-ref="PostgresDB-IS" doc:name="SELECT ALL NEWS">
+                <db:parameterized-query><![CDATA[SELECT title, text
+FROM news_tb
+WHERE region = #[region];]]></db:parameterized-query>
+            </db:select>
+            <foreach doc:name="For Each - news">
+                <db:update config-ref="PostgresDB-IS" doc:name="Count-Update">
+                    <db:parameterized-query><![CDATA[UPDATE soap_statistics SET number = 1 + number
+WHERE name='non-digest';]]></db:parameterized-query>
+                </db:update>
+                <set-payload value="TITLE   +  #[payload.title] + TEXT + #[payload.text]" doc:name="Email Body"/>
+                <flow-ref name="is_project3_SendEmail" doc:name="Send Email"/>
+            </foreach>
+        </foreach>
+        <exception-strategy ref="Catch Exception Strategy" doc:name="Reference Exception Strategy"/>
+    </flow>
+    <flow name="is_project3_SOAP_AddNews" doc:name="is_project3_SOAP_AddNews">
+        <http:inbound-endpoint exchange-pattern="request-response" host="localhost" port="8081" path="ClientNews" doc:name="HTTP"/>
+        <cxf:jaxws-service serviceClass="ws.ClientNews" doc:name="CXF"/>
+        <vm:outbound-endpoint exchange-pattern="one-way" path="lolo" doc:name="VM"/>
+        <set-payload value="#['OKAY']" doc:name="Set Payload"/>
+        <exception-strategy ref="Catch Exception Strategy" doc:name="Reference Exception Strategy"/>
+    </flow>
+    <flow name="is_project3_SendEmailToDigest" doc:name="is_project3_SendEmailToDigest">
+        <quartz:inbound-endpoint jobName="sendMails" repeatInterval="30000" startDelay="10000" responseTimeout="10000" doc:name="Quartz">
+            <quartz:event-generator-job/>
+        </quartz:inbound-endpoint>
+        <db:select config-ref="PostgresDB-IS" doc:name="Get User">
+            <db:parameterized-query><![CDATA[SELECT email FROM user_tb
+WHERE digest_type=true 
+AND confirm = true;]]></db:parameterized-query>
+        </db:select>
+        <foreach doc:name="For Each - User">
+            <set-variable variableName="email" value="#[payload.email]" doc:name="EMAIL"/>
+            <db:select config-ref="PostgresDB-IS" doc:name="Get Title and Text of News">
+                <db:parameterized-query><![CDATA[SELECT user_tb.region, title, text
+FROM news_tb, user_tb
+WHERE news_tb.region = user_tb.region
+AND email = #[email]
+AND news_tb.datetime > current_timestamp - interval '7' day
+ORDER BY news_tb.datetime;]]></db:parameterized-query>
+            </db:select>
+            <foreach doc:name="For Each - News">
+                <set-variable variableName="content" value="&quot;\n Title: &quot; + #[payload.title] + &quot;\n\n&quot; + #[payload.text]" doc:name="Title"/>
+            </foreach>
+            <db:update config-ref="PostgresDB-IS" doc:name="Update - Count Digest">
+                <db:parameterized-query><![CDATA[UPDATE soap_statistics SET number = 1 + number
+WHERE name='digest';]]></db:parameterized-query>
+            </db:update>
+            <set-payload value="&quot;Digest Notification:\n&quot; + #[content]" doc:name="Set Payload"/>
+            <flow-ref name="is_project3_SendEmail" doc:name="Flow Reference"/>
+        </foreach>
+        <exception-strategy ref="Catch Exception Strategy" doc:name="Reference Exception Strategy"/>
+    </flow>
+
+ <!--    <flow name="is_project3_Subscribe" doc:name="is_project3_Subscribe">
+        <jetty:inbound-endpoint exchange-pattern="request-response" doc:name="Jetty"/>
+        <expression-filter expression="" doc:name="Expression"/>
+        <set-variable variableName="user_email" value="#[message.InboundProperties['email']]" doc:name="Email"/>
+        <set-variable variableName="digest_type" value="#[message.InboundProperties['Digest']]" doc:name="Digest"/>
+        <variable-transformer doc:name="Channel"/>
+        <db:no-operation-selected config-ref="" doc:name="Database"/>
+        <choice doc:name="Choice">
+            <when expression="">
+                <set-payload doc:name="Set Payload"/>
+                <db:no-operation-selected config-ref="" doc:name="Insert"/>
+            </when>
+            <when expression="">
+                <set-payload doc:name="Set Payload"/>
+            </when>
+            <otherwise>
+                <logger level="INFO" doc:name="Logger"/>
+            </otherwise>
+        </choice>
+    </flow>  -->
+
+    <flow name="is_project3_statisticsSOAP" doc:name="is_project3_statisticsSOAP">
+        <http:inbound-endpoint exchange-pattern="request-response" host="localhost" port="8081" doc:name="HTTP" path="Statistics"/>
+        <cxf:jaxws-service doc:name="CXF" serviceClass="ws.Statistics"/>
+        <choice doc:name="Choice">
+            <when expression="#[method.name=='totalNews']">
+                <db:select config-ref="PostgresDB-IS" doc:name="Count Total News">
+                    <db:parameterized-query><![CDATA[SELECT number FROM soap_statistics
+WHERE name = 'news';]]></db:parameterized-query>
+                </db:select>
+                <set-payload value="#[payload.get(0).number]" doc:name="Set Payload"/>
+            </when>
+            <when expression="#[method.name=='emailsDigest']">
+                <db:select config-ref="PostgresDB-IS" doc:name="Count Digest Users">
+                    <db:parameterized-query><![CDATA[SELECT number FROM soap_statistics
+WHERE name = 'digest';]]></db:parameterized-query>
+                </db:select>
+                <set-payload value="#[payload.get(0).number]" doc:name="Set Payload"/>
+            </when>
+            <when expression="#[method.name=='emailsNonDigest']">
+                <db:select config-ref="PostgresDB-IS" doc:name="Count Non-digest Users">
+                    <db:parameterized-query><![CDATA[SELECT number FROM soap_statistics
+WHERE name = 'non-digest';]]></db:parameterized-query>
+                </db:select>
+                <set-payload value="#[payload.get(0).number]" doc:name="Set Payload"/>
+            </when>
+            <when expression="#[method.name=='numTwitter']">
+                <db:select config-ref="PostgresDB-IS" doc:name="Number of Tweets">
+                    <db:parameterized-query><![CDATA[SELECT number FROM soap_statistics
+WHERE name = 'tweets';]]></db:parameterized-query>
+                </db:select>
+                <set-payload value="#[payload.get(0).number]" doc:name="Set Payload"/>
+            </when>
+            <when expression="#[method.name=='totalNewsByGenre']">
+                <db:select config-ref="PostgresDB-IS" doc:name="News for Each Region">
+                    <db:parameterized-query><![CDATA[SELECT name,number FROM soap_statistics
+WHERE name = 'africa'
+OR name = 'europe'
+OR name = 'asia'
+OR name = 'meast'
+OR name = 'us'
+OR name = 'lamerica';]]></db:parameterized-query>
+                </db:select>
+                <json:object-to-json-transformer doc:name="Object to JSON"/>
+            </when>
+            <otherwise>
+                <logger level="INFO" doc:name="Logger"/>
+            </otherwise>
+        </choice>
+        <exception-strategy ref="Catch Exception Strategy" doc:name="Reference Exception Strategy"/>
+
+    </flow>
+    <sub-flow name="is_project3_SendEmail" doc:name="is_project3_SendEmail">
+        <set-session-variable variableName="email" value="#[message.payload.email]" doc:name="Session Variable"/>
+        <smtp:outbound-endpoint host="smtp.gmail.com" port="587" user="systemsintegrationis%40gmail.com" password="123hello" connector-ref="Gmail" to="#[email]" from="systemsintegrationis%40gmail.com" subject="CNN News" responseTimeout="10000" doc:name="SMTP"/>
+        <set-payload value="#[email] SENT" doc:name="Set Payload"/>
+        <logger message="Gmail Sent" level="INFO" doc:name="Logger"/>
+    </sub-flow>
+
+</mule>
